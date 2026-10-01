@@ -1,0 +1,39 @@
+import socket
+import struct
+import textwrap
+
+def main():
+    # Create a raw socket and bind it to the public interface
+    HOST = socket.gethostbyname(socket.gethostname())
+    conn = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_IP)
+    conn.bind((HOST, 0))
+    
+    # Include header in the packet capture
+    conn.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
+    
+    print(f"[*] Network Sniffer started on host: {HOST}")
+    try:
+        while True:
+            raw_data, addr = conn.recvfrom(65535)
+            packet = parse_ip_header(raw_data)
+            print(f"Packet Captured: Version: {packet['version']}, Protocol: {packet['protocol']}, Source: {packet['src']}, Target: {packet['target']}")
+    except KeyboardInterrupt:
+        print("\n[*] Sniffer stopped.")
+
+def parse_ip_header(data):
+    version_header_length = data[0]
+    version = version_header_length >> 4
+    header_length = (version_header_length & 15) * 4
+    ttl, proto, src, target = struct.unpack('! 8x B B 2x 4s 4s', data[:20])
+    return {
+        'version': version,
+        'protocol': proto,
+        'src': civ_ip(src),
+        'target': civ_ip(target)
+    }
+
+def civ_ip(addr):
+    return '.'.join(str(b) for b in addr)
+
+if __name__ == '__main__':
+    main()
